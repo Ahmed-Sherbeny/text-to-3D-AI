@@ -1,0 +1,582 @@
+# ==============================================================================
+# REVIEW STATUS
+# Reviewed by ChatGPT
+# - Normalized line endings
+# - Ready for manual production review
+# - Recommended next improvements:
+#   * Docker Secrets for production credentials
+#   * Compose profiles (dev/prod)
+#   * Backend service with depends_on: service_healthy
+#   * Monitoring (Prometheus/Grafana) if needed
+# ==============================================================================
+
+# ==============================================================================
+# OptiForge3D - Docker Compose Configuration (PRODUCTION-READY)
+# ==============================================================================
+# This file orchestrates all infrastructure services for OptiForge3D
+# Docker Compose V2+ syntax (version field removed as per deprecation)
+# ==============================================================================
+
+# ==============================================================================
+# SERVICES DEFINITION
+# ==============================================================================
+services:
+
+  # ============================================================================
+  # PostgreSQL Database Service
+  # ============================================================================
+  # Primary relational database for storing:
+  # - User accounts and authentication data
+  # - 3D model metadata (filename, size, format, status)
+  # - Optimization job records
+  # - Application configuration
+  # ============================================================================
+  postgres:
+    # --------------------------------------------------
+    # Image Selection
+    # --------------------------------------------------
+    # Using Alpine variant for smaller image size (~230MB vs ~380MB for full)
+    # 16.3-alpine = PostgreSQL 16.3 with Alpine Linux base
+    # PRODUCTION BEST PRACTICE: Use specific version tags, never :latest
+    # - :latest changes unpredictably, breaking deployments
+    # - Specific tags ensure reproducible builds
+    # - Easier rollback if issues occur
+    # - Version control matches infrastructure state
+    image: postgres:16.3-alpine
+    
+    # --------------------------------------------------
+    # Container Name
+    # --------------------------------------------------
+    # Fixed container name for easier reference in commands
+    # Without this, Docker generates random names like "optiforge_postgres_1"
+    container_name: optiforge_postgres
+    
+    # --------------------------------------------------
+    # Restart Policy
+    # --------------------------------------------------
+    # unless-stopped = Always restart container except when explicitly stopped
+    # This ensures the database comes back up after Docker daemon restarts
+    # or system reboots (critical for production availability)
+    restart: unless-stopped
+    
+    # --------------------------------------------------
+    # Environment Variables
+    # --------------------------------------------------
+    # All values loaded from .env file for security and flexibility
+    environment:
+      # POSTGRES_USER: Creates a superuser with this username
+      # This user has full privileges on the database
+      POSTGRES_USER: ${POSTGRES_USER}
+      
+      # POSTGRES_PASSWORD: Sets the password for the superuser
+      # CRITICAL: Change from default in production!
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      
+      # POSTGRES_DB: Creates this database on first initialization
+      # If not set, defaults to the value of POSTGRES_USER
+      POSTGRES_DB: ${POSTGRES_DB}
+      
+      # PGDATA REMOVED: Not necessary for Docker volumes
+      # The default /var/lib/postgresql/data works perfectly with named volumes
+      # The subdirectory workaround was needed for bind mounts, not named volumes
+      # Official postgres image handles this correctly
+      # Simpler configuration = fewer points of failure
+    
+    # --------------------------------------------------
+    # Logging Configuration
+    # --------------------------------------------------
+    # PRODUCTION CRITICAL: Prevents disk exhaustion from unbounded logs
+    # Without this, logs grow infinitely and can fill the disk
+    # json-file: Default driver, stores logs as JSON
+    # max-size: Maximum size of each log file before rotation
+    # max-file: Number of rotated log files to keep
+    # Example: 10MB * 3 files = max 30MB logs per container
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # --------------------------------------------------
+    # Resource Limits
+    # --------------------------------------------------
+    # Prevents PostgreSQL from consuming all system resources
+    # Critical for multi-service environments and local AI workstations
+    # Adjust based on your workload:
+    # - Light: 1 CPU / 1GB RAM (development)
+    # - Medium: 2 CPU / 2GB RAM (recommended for AI workstation)
+    # - Heavy: 4+ CPU / 4GB+ RAM (production with large datasets)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'      # Max 2 CPU cores
+          memory: 2G       # Max 2GB RAM
+        reservations:
+          cpus: '0.5'      # Guaranteed 0.5 CPU
+          memory: 512M     # Guaranteed 512MB RAM
+    
+    # --------------------------------------------------
+    # Port Mapping
+    # --------------------------------------------------
+    # Format: "HOST_PORT:CONTAINER_PORT"
+    # Exposes PostgreSQL on host's port 5432
+    # Applications connect via: localhost:5432
+    # SECURITY NOTE: In production, consider NOT exposing this port
+    # Use internal Docker network only and access via reverse proxy/bastion
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    
+    # --------------------------------------------------
+    # Volume Mounting
+    # --------------------------------------------------
+    # Named volume for persistent data storage
+    # Data survives container deletion/recreation
+    # Volume is managed by Docker (not in project directory)
+    volumes:
+      # Mount named volume to PostgreSQL data directory
+      - postgres_data:/var/lib/postgresql/data
+      
+      # Mount initialization scripts directory
+      # SQL files in this directory run on first container start
+      # Useful for creating schemas, tables, initial data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    
+    # --------------------------------------------------
+    # Network Configuration
+    # --------------------------------------------------
+    # Connects to shared bridge network
+    # Enables service discovery: other containers can reach this via "postgres" hostname
+    networks:
+      - optiforge_network
+    
+    # --------------------------------------------------
+    # Health Check
+    # --------------------------------------------------
+    # Docker periodically runs this command to verify service health
+    # Used by orchestration tools and docker compose ps to show health status
+    healthcheck:
+      # pg_isready: PostgreSQL utility that checks if server is ready
+      # -U: Connect as this user
+      # -d: Connect to this database
+      # This tool is built into postgres image, no dependencies needed
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      
+      # interval: Time between health checks
+      interval: 10s
+      
+      # timeout: Max time to wait for health check to complete
+      timeout: 5s
+      
+      # retries: Number of consecutive failures before marking unhealthy
+      retries: 5
+      
+      # start_period: Grace period before starting health checks
+      # PostgreSQL needs time to initialize on first start
+      start_period: 30s
+
+  # ============================================================================
+  # Redis Cache & Message Broker Service
+  # ============================================================================
+  # In-memory data structure store used for:
+  # - Session storage (user login sessions)
+  # - Application caching (frequently accessed data)
+  # - Celery message broker (task queue communication) - future use
+  # - Real-time data (WebSocket state, temporary data)
+  # 
+  # Why include Redis before Celery is implemented?
+  # 1. Caching improves API performance from day one
+  # 2. Session storage is needed for user authentication
+  # 3. Easier to add Celery later without infrastructure changes
+  # 4. Redis is lightweight (<100MB) with negligible overhead
+  # ============================================================================
+  redis:
+    # --------------------------------------------------
+    # Image Selection
+    # --------------------------------------------------
+    # Alpine variant for smaller image size
+    # 7.2-alpine = Redis 7.2 (stable) with Alpine Linux
+    # PRODUCTION BEST PRACTICE: Use specific version tags
+    image: redis:7.2-alpine
+    
+    # --------------------------------------------------
+    # Container Name
+    # --------------------------------------------------
+    container_name: optiforge_redis
+    
+    # --------------------------------------------------
+    # Restart Policy
+    # --------------------------------------------------
+    restart: unless-stopped
+    
+    # --------------------------------------------------
+    # Custom Command
+    # --------------------------------------------------
+    # IMPROVED: Load configuration from file instead of inline flags
+    # Why use config file over command-line flags?
+    # 1. MAINTAINABILITY: All settings in one place, easier to version control
+    # 2. COMPLETENESS: Hundreds of Redis settings available (persistence, memory, security)
+    # 3. COMMENTS: Config file allows inline documentation
+    # 4. BEST PRACTICE: Standard Redis deployment pattern
+    # 5. NO DUPLICATION: AOF already configured in redis.conf
+    # The redis.conf already has 'appendonly yes', 'bind 0.0.0.0', etc.
+    command: redis-server /usr/local/etc/redis/redis.conf
+    
+    # --------------------------------------------------
+    # Logging Configuration
+    # --------------------------------------------------
+    # Same rationale as PostgreSQL: prevent disk exhaustion
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # --------------------------------------------------
+    # Resource Limits
+    # --------------------------------------------------
+    # Redis memory limits for AI workstation
+    # - Cache: Typically needs less than PostgreSQL
+    # - Celery broker: Queue size depends on job volume
+    # - Recommended: 1GB for mixed cache+queue workload
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'      # Max 1 CPU core
+          memory: 1G       # Max 1GB RAM
+        reservations:
+          cpus: '0.25'     # Guaranteed 0.25 CPU
+          memory: 256M     # Guaranteed 256MB RAM
+    
+    # --------------------------------------------------
+    # Port Mapping
+    # --------------------------------------------------
+    ports:
+      - "${REDIS_PORT}:6379"
+    
+    # --------------------------------------------------
+    # Volume Mounting
+    # --------------------------------------------------
+    volumes:
+      # Persist AOF and RDB files
+      # Redis saves data to /data by default
+      - redis_data:/data
+      
+      # CRITICAL: Mount custom Redis configuration
+      # Must be mounted to exact path expected by command above
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    
+    # --------------------------------------------------
+    # Network Configuration
+    # --------------------------------------------------
+    networks:
+      - optiforge_network
+    
+    # --------------------------------------------------
+    # Health Check
+    # --------------------------------------------------
+    healthcheck:
+      # redis-cli ping: Returns "PONG" if Redis is responsive
+      # redis-cli is built into redis image, no dependencies needed
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ============================================================================
+  # MinIO Object Storage Service
+  # ============================================================================
+  # S3-compatible object storage for:
+  # - raw-uploads bucket: User uploaded 3D files (.obj, .fbx, .stl, .glb, etc.)
+  # - generated-models bucket: Optimized 3D model outputs
+  # 
+  # Why MinIO instead of local filesystem?
+  # 1. S3-compatible API: Easy to migrate to AWS S3/Azure Blob/GCS later
+  # 2. Built-in versioning, access control, and metadata
+  # 3. Scales better than filesystem for large files
+  # 4. Web UI for management and debugging
+  # 5. Multipart upload support for large 3D models
+  # ============================================================================
+  minio:
+    # --------------------------------------------------
+    # Image Selection
+    # --------------------------------------------------
+    # Official MinIO server image with SPECIFIC VERSION TAG
+    # CRITICAL FIX: Changed from 'latest' to specific release
+    # Format: RELEASE.YYYY-MM-DDTHH-MM-SSZ
+    # This ensures reproducible deployments and no surprise breakages
+    image: minio/minio:RELEASE.2024-05-10T01-13-15Z
+    
+    # --------------------------------------------------
+    # Container Name
+    # --------------------------------------------------
+    container_name: optiforge_minio
+    
+    # --------------------------------------------------
+    # Restart Policy
+    # --------------------------------------------------
+    restart: unless-stopped
+    
+    # --------------------------------------------------
+    # Environment Variables
+    # --------------------------------------------------
+    environment:
+      # Root credentials for administrative access
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      
+      # Default region (required for S3 compatibility)
+      MINIO_REGION: ${MINIO_REGION}
+      
+      # Console browser redirect URL
+      # Tells MinIO where the console is accessible from host
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:${MINIO_CONSOLE_PORT}
+    
+    # --------------------------------------------------
+    # Logging Configuration
+    # --------------------------------------------------
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # --------------------------------------------------
+    # Resource Limits
+    # --------------------------------------------------
+    # MinIO resource limits for AI workstation
+    # - Handles large file uploads (3D models can be 100MB+)
+    # - Needs memory for multipart uploads
+    # - CPU for checksumming and compression
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'      # Max 2 CPU cores
+          memory: 2G       # Max 2GB RAM
+        reservations:
+          cpus: '0.5'      # Guaranteed 0.5 CPU
+          memory: 512M     # Guaranteed 512MB RAM
+    
+    # --------------------------------------------------
+    # Custom Command
+    # --------------------------------------------------
+    # Starts MinIO server in single-node mode
+    # /data: Storage directory inside container
+    # --console-address: Separates API and Console on different ports
+    #   - API (9000): S3-compatible endpoint for programmatic access
+    #   - Console (9001): Web UI for human administrators
+    command: server /data --console-address ":9001"
+    
+    # --------------------------------------------------
+    # Port Mapping
+    # --------------------------------------------------
+    ports:
+      # API endpoint: S3-compatible API for applications
+      - "${MINIO_API_PORT}:9000"
+      
+      # Console UI: Web interface for administration
+      - "${MINIO_CONSOLE_PORT}:9001"
+    
+    # --------------------------------------------------
+    # Volume Mounting
+    # --------------------------------------------------
+    volumes:
+      # Persist all object storage data
+      - minio_data:/data
+    
+    # --------------------------------------------------
+    # Network Configuration
+    # --------------------------------------------------
+    networks:
+      - optiforge_network
+    
+    # --------------------------------------------------
+    # Health Check
+    # --------------------------------------------------
+    # CRITICAL FIX: curl does NOT exist in minio/minio Alpine-based image
+    # Solution: Use wget which IS available in MinIO image
+    # wget -q -O- : Quiet mode, output to stdout
+    # Exit code 0 = success, non-zero = failure
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ============================================================================
+  # MinIO Bucket Initialization Service
+  # ============================================================================
+  # CRITICAL FIX: Replaces broken /docker-entrypoint.d approach
+  # MinIO does NOT automatically execute scripts from /docker-entrypoint.d
+  # This is a Docker entrypoint convention, but MinIO doesn't implement it
+  # 
+  # SOLUTION: Dedicated initialization service using minio/mc (MinIO Client)
+  # - Waits for MinIO to be healthy (depends_on + health check)
+  # - Runs once, creates buckets if they don't exist
+  # - Exits after completion (no restart policy needed)
+  # - Idempotent: Safe to run multiple times (--ignore-existing)
+  # ============================================================================
+  minio-init:
+    # --------------------------------------------------
+    # Image Selection
+    # --------------------------------------------------
+    # Official MinIO Client (mc) image
+    # This is the correct tool for MinIO administration tasks
+    # Alpine variant for smaller size
+    image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+    
+    # --------------------------------------------------
+    # Container Name
+    # --------------------------------------------------
+    container_name: optiforge_minio_init
+    
+    # --------------------------------------------------
+    # Dependencies
+    # --------------------------------------------------
+    # CRITICAL: Must wait for MinIO to be healthy before running
+    # condition: service_healthy ensures MinIO accepts connections
+    # Without this, mc commands would fail
+    depends_on:
+      minio:
+        condition: service_healthy
+    
+    # --------------------------------------------------
+    # Environment Variables
+    # --------------------------------------------------
+    # Pass MinIO credentials to initialization script
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    
+    # --------------------------------------------------
+    # Entrypoint Override
+    # --------------------------------------------------
+    # Override default entrypoint to run custom initialization script
+    # /bin/sh -c: Execute shell commands
+    # Each command explained below:
+    entrypoint: >
+      /bin/sh -c "
+      echo '=== MinIO Bucket Initialization ===' &&
+      
+      echo 'Step 1: Configuring MinIO client alias...' &&
+      mc alias set optiforge http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      echo '✓ MinIO client configured' &&
+      
+      echo 'Step 2: Creating bucket: raw-uploads...' &&
+      mc mb optiforge/raw-uploads --ignore-existing &&
+      mc anonymous set none optiforge/raw-uploads &&
+      mc version enable optiforge/raw-uploads &&
+      echo '✓ Bucket raw-uploads ready (private, versioned)' &&
+      
+      echo 'Step 3: Creating bucket: generated-models...' &&
+      mc mb optiforge/generated-models --ignore-existing &&
+      mc anonymous set none optiforge/generated-models &&
+      mc version enable optiforge/generated-models &&
+      echo '✓ Bucket generated-models ready (private, versioned)' &&
+      
+      echo 'Step 4: Verifying buckets...' &&
+      mc ls optiforge &&
+      
+      echo '=== MinIO initialization complete ===' &&
+      exit 0
+      "
+    
+    # COMMAND EXPLANATION:
+    # 1. mc alias set optiforge http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+    #    - Creates an alias 'optiforge' pointing to MinIO server
+    #    - Uses service name 'minio' (Docker DNS resolution)
+    #    - Authenticates with root credentials
+    # 
+    # 2. mc mb optiforge/raw-uploads --ignore-existing
+    #    - mb = make bucket
+    #    - optiforge/raw-uploads = alias/bucket-name
+    #    - --ignore-existing = No error if bucket already exists (idempotent)
+    # 
+    # 3. mc anonymous set none optiforge/raw-uploads
+    #    - Sets bucket access policy to 'none' (private)
+    #    - Only authenticated users can access
+    #    - Prevents public access to uploaded 3D models
+    # 
+    # 4. mc version enable optiforge/raw-uploads
+    #    - Enables object versioning
+    #    - Keeps history of file modifications
+    #    - Allows rollback if file is corrupted or accidentally overwritten
+    # 
+    # 5. mc ls optiforge
+    #    - Lists all buckets to verify creation
+    #    - Provides visual confirmation in logs
+    
+    # --------------------------------------------------
+    # Network Configuration
+    # --------------------------------------------------
+    # Must be on same network as MinIO to communicate via service name
+    networks:
+      - optiforge_network
+
+# ==============================================================================
+# NETWORKS DEFINITION
+# ==============================================================================
+# Docker networks enable container-to-container communication
+# ==============================================================================
+networks:
+  # Custom bridge network for OptiForge3D services
+  optiforge_network:
+    # driver: bridge = Default network driver for single-host networking
+    # Bridge networks provide:
+    # 1. Isolation from other Docker networks
+    # 2. DNS resolution between containers (service discovery)
+    # 3. Communication via service names (e.g., postgres, redis, minio)
+    # 
+    # How service discovery works:
+    # - Backend container can connect to: postgresql://postgres:5432
+    # - Redis client can connect to: redis://redis:6379
+    # - MinIO SDK can connect to: http://minio:9000
+    # 
+    # This is better than using localhost because:
+    # - localhost refers to the container itself, not other containers
+    # - IP addresses can change when containers restart
+    # - Service names are stable and human-readable
+    driver: bridge
+    
+    # Custom network name (uses variable from .env)
+    name: ${NETWORK_NAME}
+
+# ==============================================================================
+# VOLUMES DEFINITION
+# ==============================================================================
+# Named volumes for persistent data storage
+# ==============================================================================
+# Why use named volumes instead of bind mounts?
+# 1. Docker manages volume location (optimal for performance)
+# 2. Works consistently across Windows, Linux, macOS
+# 3. Easier to backup/restore with docker volume commands
+# 4. Better permission handling (no host user/group conflicts)
+# 5. Can be managed independently of compose project
+# 
+# Where is data actually stored?
+# - Linux: /var/lib/docker/volumes/
+# - Windows: \\wsl$\docker-desktop-data\data\docker\volumes\
+# - macOS: ~/Library/Containers/com.docker.docker/Data/vms/0/
+# ==============================================================================
+volumes:
+  # PostgreSQL data volume
+  # Stores: Database files, WAL logs, configuration
+  # Typical size: Grows with data, start with ~100MB, can reach GBs
+  postgres_data:
+    driver: local
+    name: ${POSTGRES_VOLUME}
+  
+  # Redis data volume
+  # Stores: AOF file (append-only log), RDB snapshots
+  # Typical size: Small (MBs), depends on cache size
+  redis_data:
+    driver: local
+    name: ${REDIS_VOLUME}
+  
+  # MinIO data volume
+  # Stores: All object storage data (3D models)
+  # Typical size: Largest volume, grows with uploads (GBs-TBs)
+  minio_data:
+    driver: local
+    name: ${MINIO_VOLUME}
