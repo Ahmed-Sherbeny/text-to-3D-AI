@@ -394,11 +394,10 @@ services:
     # Health Check
     # --------------------------------------------------
     # CRITICAL FIX: curl does NOT exist in minio/minio Alpine-based image
-    # Solution: Use wget which IS available in MinIO image
-    # wget -q -O- : Quiet mode, output to stdout
-    # Exit code 0 = success, non-zero = failure
+    # Solution: Use curl which IS available in MinIO image
+    # curl -f : Fail silently on server errors (returns non-zero exit code)
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
