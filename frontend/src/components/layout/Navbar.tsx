@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { Menu, Moon, Sun, Sparkles } from 'lucide-react'
+import { Link } from 'react-router-dom';
+import { Menu, Moon, Sun } from 'lucide-react';
 import { useThemeStore } from '@/store/themeStore'
 import { useUIStore } from '@/store/uiStore'
 import Button from '@/components/ui/Button'
@@ -32,8 +32,8 @@ export default function Navbar() {
           )}
 
           <Link to="/" className="flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">AI Image Gen</span>
+            <img src="/logo.svg" alt="OptiForge3D" className="h-8 w-8" />
+            <span className="text-xl font-bold">OptiForge3D</span>
           </Link>
         </div>
 

@@ -6,10 +6,12 @@ export interface ApiResponse<T = unknown> {
   status?: number
 }
 
-// Image Generation Types
+// 3D Model Generation Types (Step 8)
 export interface GenerationRequest {
   prompt: string
   negativePrompt?: string
+  uploadedImage?: File | string
+  sketch?: string
   width?: number
   height?: number
   steps?: number
@@ -17,6 +19,31 @@ export interface GenerationRequest {
   seed?: number
 }
 
+export interface Generated3DModel {
+  id: string
+  url: string
+  prompt: string
+  negativePrompt?: string
+  uploadedImage?: string
+  thumbnail?: string
+  format: 'glb' | 'obj' | 'stl'
+  fileSize?: number
+  createdAt: string
+}
+
+export type ExportFormat = 'glb' | 'obj' | 'stl'
+
+export type GenerationStatus = 'idle' | 'uploading' | 'processing' | 'generating' | 'completed' | 'error'
+
+export interface ViewerSettings {
+  showGrid: boolean
+  showAxes: boolean
+  autoRotate: boolean
+  wireframe: boolean
+  backgroundColor: string
+}
+
+// Legacy image type (for compatibility)
 export interface GeneratedImage {
   id: string
   url: string
@@ -64,6 +91,7 @@ export interface AuthState {
 }
 
 export interface GenerationState {
+  // Legacy image support
   images: GeneratedImage[]
   isGenerating: boolean
   currentRequest: GenerationRequest | null
@@ -71,6 +99,20 @@ export interface GenerationState {
   setGenerating: (generating: boolean) => void
   setCurrentRequest: (request: GenerationRequest | null) => void
   clearImages: () => void
+  
+  // Step 8: 3D Model Generation
+  uploadedImage: File | string | null
+  setUploadedImage: (image: File | string | null) => void
+  prompt: string
+  setPrompt: (prompt: string) => void
+  generationStatus: GenerationStatus
+  setGenerationStatus: (status: GenerationStatus) => void
+  generatedModel: Generated3DModel | null
+  setGeneratedModel: (model: Generated3DModel | null) => void
+  exportFormat: ExportFormat
+  setExportFormat: (format: ExportFormat) => void
+  viewerSettings: ViewerSettings
+  setViewerSettings: (settings: Partial<ViewerSettings>) => void
 }
 
 // User Types
