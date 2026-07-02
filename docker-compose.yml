@@ -1,0 +1,128 @@
+# ==============================================================================
+# OptiForge3D — Docker Compose (Local Development)
+# ==============================================================================
+# Services: PostgreSQL 16, Redis 7, MinIO (S3-compatible storage)
+# Usage:    docker compose up -d
+# ==============================================================================
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16.3-alpine
+    container_name: optiforge_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - optiforge_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: optiforge_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - optiforge_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── MinIO (S3-compatible object storage) ───────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: optiforge_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - optiforge_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── MinIO Bucket Init (runs once then exits) ──────────────────────────────
+  minio-init:
+    image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+    container_name: optiforge_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    entrypoint: >
+      /bin/sh -c "
+      echo '=== MinIO Bucket Initialization ===' &&
+      mc alias set optiforge http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      mc mb optiforge/raw-uploads --ignore-existing &&
+      mc mb optiforge/generated-models --ignore-existing &&
+      mc anonymous set none optiforge/raw-uploads &&
+      mc anonymous set none optiforge/generated-models &&
+      echo '=== Buckets ready ===' &&
+      mc ls optiforge
+      "
+    networks:
+      - optiforge_network
+
+# ── Networks ───────────────────────────────────────────────────────────────────
+networks:
+  optiforge_network:
+    driver: bridge
+    name: ${NETWORK_NAME:-optiforge_network}
+
+# ── Volumes ────────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+    name: ${POSTGRES_VOLUME:-optiforge_postgres_data}
+  redis_data:
+    driver: local
+    name: ${REDIS_VOLUME:-optiforge_redis_data}
+  minio_data:
+    driver: local
+    name: ${MINIO_VOLUME:-optiforge_minio_data}
