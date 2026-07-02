@@ -1,23 +1,24 @@
-# Python & Virtual Environments
-__pycache__/
-*.py[cod]
-*$py.class
-venv/
-env/
-
-# Massive Machine Learning Weights
-/ml/models/*.pt
-/ml/models/*.bin
-/ml/models/*.pth
-/ml/models/*.onnx
-
-# Database Volumes & Env Variables
-/db/data/
+# Environment variables with secrets
 .env
 
-# Node & Frontend
-node_modules/
-dist/
+# Docker volumes (if using local bind mounts)
+volumes/*
+!volumes/README.md
 
-# OS Files
+# OS-specific files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Backup files
+*.sql
+*.dump
+*.backup
