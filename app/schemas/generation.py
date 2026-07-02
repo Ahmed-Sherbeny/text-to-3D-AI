@@ -17,6 +17,10 @@ from app.models.generation import GenerationStatus, InputType
 
 class GenerationCreate(BaseModel):
     """Schema for submitting a new 3D model generation job."""
+    user_id: uuid.UUID = Field(
+        ...,
+        description="The ID of the user submitting this generation.",
+    )
     input_type: InputType = Field(
         ...,
         description="The kind of input: 'text', 'image', or 'sketch'.",
@@ -48,6 +52,7 @@ class GenerationRead(BaseModel):
     parameters: dict[str, Any] | None
     error_message: str | None
     processing_time_ms: int | None
+    celery_task_id: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -58,3 +63,32 @@ class GenerationList(BaseModel):
     """Paginated list of generation results."""
     items: list[GenerationRead]
     total: int
+
+
+class GenerationSubmitResponse(BaseModel):
+    """Returned immediately when a generation job is submitted."""
+    generation_id: uuid.UUID = Field(
+        ..., description="UUID of the generation record in PostgreSQL."
+    )
+    celery_task_id: str = Field(
+        ..., description="Celery task ID for tracking the background job."
+    )
+    status: GenerationStatus = Field(
+        ..., description="Initial status (always 'pending')."
+    )
+    message: str = Field(
+        ..., description="Human-readable confirmation message."
+    )
+
+
+class GenerationStatusResponse(BaseModel):
+    """Current status of a generation job, queried from real PostgreSQL."""
+    generation_id: uuid.UUID
+    status: GenerationStatus
+    celery_task_id: str | None = None
+    output_file_url: str | None = None
+    error_message: str | None = None
+    processing_time_ms: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+

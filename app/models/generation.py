@@ -104,6 +104,11 @@ class Generation(Base, TimestampMixin):
         nullable=True,
         doc="Total processing time in milliseconds (set on completion).",
     )
+    celery_task_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        doc="Celery task ID for tracking the background job.",
+    )
 
     # ── Relationships ────────────────────────────────────────────
     user = relationship(

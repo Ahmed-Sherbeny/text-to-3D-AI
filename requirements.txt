@@ -6,3 +6,5 @@ pydantic-settings>=2.0.0
 alembic>=1.14.0
 redis[hiredis]>=5.0.0
 python-multipart>=0.0.9
+celery[redis]>=5.4.0
+psycopg2-binary>=2.9.0

@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import engine
-from app.routers import health_router
+from app.routers import generation_router, health_router
 
 # ── Logging ──────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -103,6 +103,7 @@ app.add_middleware(
 
 # ── Register Routers ────────────────────────────────────────────────────
 app.include_router(health_router)
+app.include_router(generation_router)
 
 
 # ── Root Endpoint ────────────────────────────────────────────────────────
