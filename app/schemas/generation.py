@@ -15,16 +15,11 @@ from app.models.generation import GenerationStatus, InputType
 
 # ── Request Schemas ──────────────────────────────────────────────────────
 
-class GenerationCreate(BaseModel):
-    """Schema for submitting a new 3D model generation job."""
+class TextGenerationRequest(BaseModel):
+    """Schema for submitting a new text-to-3D generation job."""
     user_id: uuid.UUID = Field(
         ...,
         description="The ID of the user submitting this generation.",
-    )
-    input_type: InputType = Field(
-        ...,
-        description="The kind of input: 'text', 'image', or 'sketch'.",
-        examples=["text"],
     )
     prompt: str | None = Field(
         None,

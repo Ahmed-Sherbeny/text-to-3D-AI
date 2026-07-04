@@ -6,7 +6,7 @@ Re-exports all Pydantic schemas.
 
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.schemas.generation import (
-    GenerationCreate,
+    TextGenerationRequest,
     GenerationList,
     GenerationRead,
     GenerationStatusResponse,
@@ -18,7 +18,7 @@ __all__ = [
     "UserCreate",
     "UserRead",
     "UserUpdate",
-    "GenerationCreate",
+    "TextGenerationRequest",
     "GenerationList",
     "GenerationRead",
     "GenerationStatusResponse",

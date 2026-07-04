@@ -35,6 +35,7 @@ def generate_3d_task(
     generation_id: str,
     input_type: str,
     prompt: str | None = None,
+    input_file_url: str | None = None,
     parameters: dict | None = None,
 ) -> dict:
     """
@@ -44,6 +45,7 @@ def generate_3d_task(
         generation_id: UUID of the Generation record in PostgreSQL.
         input_type: "text", "image", or "sketch".
         prompt: The text prompt (for text-based generation).
+        input_file_url: Optional MinIO path for the input image/sketch.
         parameters: Optional model parameters (format, quality, etc.).
 
     Returns:
@@ -71,39 +73,58 @@ def generate_3d_task(
         db.commit()
         logger.info(f"   Status → PROCESSING")
 
-        # ── Step 2: Run ML Pipeline ─────────────────────────────────
-        # =============================================================
-        # 🔌 ML ENGINEER: PLUG IN YOUR CODE HERE
-        # =============================================================
-        # This is where the heavy PyTorch execution happens:
-        #   - Load the Shap-E / YOLOv8 / CLIP model weights
-        #   - Generate the 3D mesh from the input
-        #   - Export to .glb / .obj format
-        #   - Upload the result to MinIO (generated-models bucket)
-        #   - Return the MinIO object URL
-        #
-        # Example integration:
-        #   from ml.pipeline import generate_3d_model
-        #   result = generate_3d_model(
-        #       input_type=input_type,
-        #       prompt=prompt,
-        #       parameters=parameters,
-        #   )
-        #   output_url = upload_to_minio(result.mesh_file)
-        #
-        # For now, we simulate the processing time to prove
-        # the task queue works end-to-end with real infrastructure.
-        # =============================================================
+        logger.info("   🧠 ML pipeline executing via Colab API...")
 
-        logger.info("   🧠 ML pipeline executing...")
-
-        # Simulate GPU processing (replace with real ML code)
-        time.sleep(5)
-
-        # Simulated output URL (replace with real MinIO upload path)
-        output_url = (
-            f"generated-models/{generation_id}/model.glb"
+        import requests
+        import os
+        from minio import Minio
+        from app.config import get_settings
+        
+        settings = get_settings()
+        
+        # Pull the Cloudflare API URL from .env via the Settings class
+        ml_api_url = settings.OPTIFORGE_ML_API_URL
+        if not ml_api_url:
+            raise ValueError("OPTIFORGE_ML_API_URL is not set in the .env file!")
+        
+        response = requests.post(
+            f"{ml_api_url.rstrip('/')}/generate",
+            json={"prompt": prompt, "steps": 64},
+            headers={"ngrok-skip-browser-warning": "1"},
+            timeout=180 # 3 minutes since Shap-E generation takes a bit
         )
+        
+        if response.status_code != 200:
+            raise RuntimeError(f"Colab API returned {response.status_code}: {response.text}")
+
+        # Save downloaded .obj temporarily
+        temp_file = f"/tmp/{generation_id}.obj"
+        # On Windows, you might want os.path.join(os.getenv('TEMP'), f"{generation_id}.obj")
+        if os.name == 'nt':
+            temp_file = os.path.join(os.getenv('TEMP', '.'), f"{generation_id}.obj")
+            
+        with open(temp_file, "wb") as f:
+            f.write(response.content)
+
+        # Upload to MinIO
+        from app.minio_client import minio_client
+        import io
+        
+        with open(temp_file, "rb") as f:
+            file_bytes = f.read()
+            
+        object_name = f"{generation_id}/model.obj"
+        output_url = minio_client.upload_file_stream(
+            bucket_name=settings.MINIO_BUCKET_GENERATED_MODELS,
+            object_name=object_name,
+            data=io.BytesIO(file_bytes),
+            length=len(file_bytes),
+            content_type="application/octet-stream",
+        )
+        
+        # Clean up temp file
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
 
         logger.info(f"   ✅ ML pipeline complete. Output: {output_url}")
 

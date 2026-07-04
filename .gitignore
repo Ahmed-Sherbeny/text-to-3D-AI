@@ -21,3 +21,12 @@ dist/
 
 # OS Files
 .DS_Store
+
+# Large Data / ML Artifacts
+# Ignore the models folder (local cache for downloaded checkpoints)
+ml/models/
+
+# Optional: Ignore output folders if your ML scripts create them locally
+# (Uncomment if you don't want to commit generated .glb files)
+# ml/outputs/
+# ml/results/

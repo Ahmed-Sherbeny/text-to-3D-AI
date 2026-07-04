@@ -64,6 +64,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Redis connection FAILED: {e}")
 
+    # Initialize MinIO buckets
+    from app.minio_client import minio_client
+    minio_client.init_buckets()
+
     logger.info("🟢 OptiForge3D backend is ready.")
     logger.info(f"   Docs: http://localhost:8000/docs")
 
