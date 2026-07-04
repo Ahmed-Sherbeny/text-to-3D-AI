@@ -131,8 +131,11 @@ celery -A app.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q d
 |--------|------|-------------|
 | GET | `/` | API root — returns name, version, status |
 | GET | `/health` | Real health check for PostgreSQL, Redis, MinIO |
-| POST | `/generations/` | Submit a generation job (dispatches to Celery) |
-| GET | `/generations/{id}/status` | Check real-time generation status |
+| POST | `/api/v1/generate/text` | Submit a text-to-3D generation job |
+| POST | `/api/v1/generate/image` | Submit an image-to-3D job (multipart/form-data upload to MinIO) |
+| POST | `/api/v1/generate/sketch` | Submit a sketch-to-3D job (multipart/form-data upload to MinIO) |
+| GET | `/api/v1/generate/{id}/status` | Check real-time generation status |
+| GET | `/api/v1/models/{id}/download` | Stream the generated `.obj` or `.glb` file directly from MinIO |
 | GET | `/docs` | Interactive Swagger UI |
 | GET | `/redoc` | ReDoc API documentation |
 
