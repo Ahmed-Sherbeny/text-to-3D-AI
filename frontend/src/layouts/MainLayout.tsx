@@ -22,7 +22,7 @@ export default function MainLayout() {
             !isMobile && 'ml-64'
           )}
         >
-          <div className="container py-6 px-4">
+          <div className="container mx-auto px-4 py-8 md:px-6 lg:px-8">
             <Outlet />
           </div>
         </main>

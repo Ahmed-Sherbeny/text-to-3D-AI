@@ -43,12 +43,13 @@ export default function Sidebar() {
         <div className="flex h-full flex-col">
           {/* Mobile close button */}
           {isMobile && (
-            <div className="flex items-center justify-between border-b p-4">
+            <div className="flex items-center justify-between border-b px-4 py-4">
               <h2 className="text-lg font-semibold">Menu</h2>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSidebarOpen(false)}
+                aria-label="Close menu"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -56,7 +57,7 @@ export default function Sidebar() {
           )}
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="flex-1 space-y-1 p-3">
             {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
@@ -64,15 +65,15 @@ export default function Sidebar() {
                 onClick={handleLinkClick}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
                     isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )
                 }
               >
-                <Icon className="h-5 w-5" />
-                {label}
+                <Icon className="h-5 w-5 flex-shrink-0 transition-transform group-hover:scale-110" />
+                <span>{label}</span>
               </NavLink>
             ))}
           </nav>

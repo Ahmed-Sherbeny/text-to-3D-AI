@@ -9,28 +9,28 @@ export default function Generate() {
   const { generatedModel } = useGenerationStore();
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl">
       {/* Header */}
-      <div className="space-y-2">
+      <div className="mb-8 space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Generate 3D Model</h1>
         <p className="text-muted-foreground">
           Create stunning 3D models from text descriptions and reference images
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-2">
         {/* Left Column: Input Panel */}
-        <div className="space-y-6">
+        <div className="flex flex-col">
           <InputPanel />
         </div>
 
-        {/* Right Column: 3D Viewer */}
-        <div className="space-y-6">
+        {/* Right Column: 3D Viewer & Export */}
+        <div className="flex flex-col gap-8">
           {/* 3D Viewer Card */}
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-2">
                   <CardTitle>3D Viewer</CardTitle>
                   <CardDescription>
                     {generatedModel

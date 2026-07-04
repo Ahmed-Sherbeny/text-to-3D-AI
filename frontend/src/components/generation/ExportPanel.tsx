@@ -35,12 +35,12 @@ export default function ExportPanel() {
       </CardHeader>
       <CardContent>
         {!generatedModel ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/10 p-8 text-center">
-            <FileBox className="mb-4 h-16 w-16 text-muted-foreground/50" />
-            <p className="mb-2 font-medium text-muted-foreground">
+          <div className="flex min-h-[280px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/10 p-8 text-center">
+            <FileBox className="mb-4 h-12 w-12 text-muted-foreground/40" />
+            <p className="mb-1.5 font-medium text-muted-foreground">
               No model generated yet
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground/80">
               {generationStatus === 'generating'
                 ? 'Your model is being generated...'
                 : 'Fill in the prompt and click Generate'}
@@ -58,31 +58,31 @@ export default function ExportPanel() {
             </div>
 
             {/* Model Information */}
-            <div className="space-y-3">
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="mb-1 text-xs font-medium uppercase text-muted-foreground">
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted/50 p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Prompt
                 </p>
-                <p className="text-sm">{generatedModel.prompt}</p>
+                <p className="text-sm leading-relaxed">{generatedModel.prompt}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border p-3">
-                  <div className="mb-1 flex items-center gap-2 text-muted-foreground">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="mb-2 flex items-center gap-2 text-muted-foreground">
                     <HardDrive className="h-4 w-4" />
-                    <span className="text-xs font-medium">File Size</span>
+                    <span className="text-xs font-medium uppercase tracking-wide">File Size</span>
                   </div>
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-semibold">
                     {formatFileSize(generatedModel.fileSize || 0)}
                   </p>
                 </div>
 
-                <div className="rounded-lg border p-3">
-                  <div className="mb-1 flex items-center gap-2 text-muted-foreground">
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="mb-2 flex items-center gap-2 text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    <span className="text-xs font-medium">Created</span>
+                    <span className="text-xs font-medium uppercase tracking-wide">Created</span>
                   </div>
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-semibold">
                     {formatDate(generatedModel.createdAt)}
                   </p>
                 </div>
