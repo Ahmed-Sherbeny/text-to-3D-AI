@@ -1,0 +1,45 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Futuristic 3D "O" with depth and glow -->
+  <defs>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Glow effect -->
+  <circle cx="20" cy="20" r="18" fill="url(#glowGrad)" />
+  
+  <!-- Outer ring (front face) -->
+  <path d="M 20 4 
+           A 16 16 0 1 1 20 36
+           A 16 16 0 1 1 20 4
+           Z
+           M 20 10
+           A 10 10 0 1 0 20 30
+           A 10 10 0 1 0 20 10
+           Z" 
+        fill="url(#primaryGrad)" 
+        stroke="#4f46e5" 
+        stroke-width="0.5"/>
+  
+  <!-- 3D depth lines (left side) -->
+  <path d="M 6 12 L 4 11" stroke="#4f46e5" stroke-width="1.5" opacity="0.6"/>
+  <path d="M 5 20 L 3 20" stroke="#4f46e5" stroke-width="1.5" opacity="0.6"/>
+  <path d="M 6 28 L 4 29" stroke="#4f46e5" stroke-width="1.5" opacity="0.6"/>
+  
+  <!-- 3D depth lines (right side) -->
+  <path d="M 34 12 L 36 11" stroke="#4f46e5" stroke-width="1.5" opacity="0.6"/>
+  <path d="M 35 20 L 37 20" stroke="#4f46e5" stroke-width="1.5" opacity="0.6"/>
+  <path d="M 34 28 L 36 29" stroke="#4f46e5" stroke-width="1.5" opacity="0.6"/>
+  
+  <!-- Center highlight -->
+  <circle cx="20" cy="20" r="10" fill="none" stroke="#8b5cf6" stroke-width="1" opacity="0.4"/>
+  
+  <!-- Inner geometric detail -->
+  <path d="M 20 15 L 24 20 L 20 25 L 16 20 Z" fill="#4f46e5" opacity="0.3"/>
+</svg>

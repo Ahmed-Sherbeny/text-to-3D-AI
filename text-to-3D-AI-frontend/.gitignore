@@ -1,0 +1,23 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+
+# Massive Machine Learning Weights
+/ml/models/*.pt
+/ml/models/*.bin
+/ml/models/*.pth
+/ml/models/*.onnx
+
+# Database Volumes & Env Variables
+/db/data/
+.env
+
+# Node & Frontend
+node_modules/
+dist/
+
+# OS Files
+.DS_Store
