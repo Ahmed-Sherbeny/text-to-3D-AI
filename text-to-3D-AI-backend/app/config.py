@@ -29,26 +29,13 @@ class Settings(BaseSettings):
     # ── Application ──────────────────────────────────────────────
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
-
-    # ── PostgreSQL ───────────────────────────────────────────────
-    POSTGRES_USER: str = "optiforge_user"
-    POSTGRES_PASSWORD: str = "change_this_secure_password_123"
-    POSTGRES_DB: str = "optiforge_db"
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
+    GEMINI_API_KEY: str | None = None
+    COLAB_API_URL: str = "https://bumpy-chefs-tan.loca.lt"
 
     # ── Redis ────────────────────────────────────────────────────
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str | None = None
-
-    # ── MinIO (S3-compatible object storage) ─────────────────────
-    MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "change_this_minio_password_789"
-    MINIO_SECURE: bool = False
-    MINIO_BUCKET_RAW_UPLOADS: str = "raw-uploads"
-    MINIO_BUCKET_GENERATED_MODELS: str = "generated-models"
 
     # ── CORS (local-first — only localhost origins allowed) ──────
     CORS_ORIGINS: List[str] = [
@@ -68,22 +55,6 @@ class Settings(BaseSettings):
         return v
 
     # ── Computed Properties ──────────────────────────────────────
-
-    @property
-    def database_url(self) -> str:
-        """Async PostgreSQL connection string for SQLAlchemy."""
-        return (
-            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-        )
-
-    @property
-    def database_url_sync(self) -> str:
-        """Sync PostgreSQL connection string (used by Alembic)."""
-        return (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-        )
 
     @property
     def redis_url(self) -> str:

@@ -16,11 +16,11 @@ from app.config import get_settings
 settings = get_settings()
 
 # ── Celery Application ──────────────────────────────────────────────────
-# Broker (message queue) and backend (result store) both use our local Redis.
 celery_app = Celery(
     "optiforge3d",
     broker=settings.redis_url,
     backend=settings.redis_url,
+    include=["app.tasks.generation", "app.tasks.scene_generation"]
 )
 
 # ── Configuration for Heavy ML Workloads ────────────────────────────────

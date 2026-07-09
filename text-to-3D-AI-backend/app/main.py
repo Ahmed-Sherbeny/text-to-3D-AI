@@ -13,10 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-
 from app.config import get_settings
-from app.database import engine
 from app.routers import generation_router, health_router
 
 # ── Logging ──────────────────────────────────────────────────────────────
@@ -42,14 +39,6 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Environment : {settings.APP_ENV}")
     logger.info(f"   Debug mode  : {settings.APP_DEBUG}")
 
-    # Verify PostgreSQL connection (real query, no mock)
-    try:
-        async with engine.begin() as conn:
-            await conn.execute(text("SELECT 1"))
-        logger.info("✅ PostgreSQL connection verified.")
-    except Exception as e:
-        logger.error(f"❌ PostgreSQL connection FAILED: {e}")
-
     # Verify Redis connection (real PING, no mock)
     try:
         import redis.asyncio as aioredis
@@ -71,8 +60,7 @@ async def lifespan(app: FastAPI):
 
     # ── Shutdown ─────────────────────────────────────────────────
     logger.info("🔴 OptiForge3D backend shutting down...")
-    await engine.dispose()
-    logger.info("   Database engine disposed. Goodbye.")
+    logger.info("   Goodbye.")
 
 
 # ── FastAPI Application ──────────────────────────────────────────────────

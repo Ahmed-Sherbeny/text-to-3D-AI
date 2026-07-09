@@ -3,6 +3,7 @@ import InputPanel from '@/components/generation/InputPanel';
 import ExportPanel from '@/components/generation/ExportPanel';
 import Viewer3D from '@/components/3d/Viewer3D';
 import ViewerToolbar from '@/components/3d/ViewerToolbar';
+import SceneProgress from '@/components/generation/SceneProgress';
 import { useGenerationStore } from '@/store/generationStore';
 
 export default function Generate() {
@@ -22,6 +23,7 @@ export default function Generate() {
         {/* Left Column: Input Panel */}
         <div className="flex flex-col">
           <InputPanel />
+          <SceneProgress />
         </div>
 
         {/* Right Column: 3D Viewer & Export */}

@@ -79,11 +79,6 @@ export default function Home() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="/gallery">
-                <Button variant="outline" size="lg" className="text-base backdrop-blur-sm">
-                  View Gallery
-                </Button>
-              </Link>
             </div>
 
             {/* Stats - with glassmorphism */}

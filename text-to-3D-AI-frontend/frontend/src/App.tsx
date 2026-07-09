@@ -4,7 +4,6 @@ import { useThemeStore } from '@/store/themeStore'
 import MainLayout from '@/layouts/MainLayout'
 import Home from '@/pages/Home'
 import Generate from '@/pages/Generate'
-import Gallery from '@/pages/Gallery'
 import Settings from '@/pages/Settings'
 import NotFound from '@/pages/NotFound'
 
@@ -29,7 +28,6 @@ function App() {
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
         <Route path="generate" element={<Generate />} />
-        <Route path="gallery" element={<Gallery />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Route>

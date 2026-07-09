@@ -8,7 +8,6 @@ import Button from '@/components/ui/Button'
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/generate', icon: Sparkles, label: 'Generate' },
-  { to: '/gallery', icon: Image, label: 'Gallery' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 

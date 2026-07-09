@@ -109,6 +109,7 @@ export interface GenerationState {
   setGenerationStatus: (status: GenerationStatus) => void
   generatedModel: Generated3DModel | null
   setGeneratedModel: (model: Generated3DModel | null) => void
+  intermediateData: Record<string, any> | null
   exportFormat: ExportFormat
   setExportFormat: (format: ExportFormat) => void
   viewerSettings: ViewerSettings

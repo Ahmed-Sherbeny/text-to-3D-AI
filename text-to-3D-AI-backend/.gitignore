@@ -21,3 +21,6 @@ dist/
 
 # OS Files
 .DS_Store
+
+# Temporary generated 3D models
+static/generated-models/

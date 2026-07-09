@@ -76,21 +76,6 @@ export default function BrushSelector() {
         </div>
       )}
 
-      {/* Brush Preview */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Preview</label>
-        <div className="flex h-16 items-center justify-center rounded-lg border-2 border-border bg-white">
-          <div
-            className="rounded-full"
-            style={{
-              width: `${Math.min(brushSize, 40)}px`,
-              height: `${Math.min(brushSize, 40)}px`,
-              backgroundColor: tool === 'brush' ? brushColor : '#E5E5E5',
-              border: tool === 'eraser' ? '2px dashed #999' : 'none',
-            }}
-          />
-        </div>
-      </div>
     </div>
   );
 }

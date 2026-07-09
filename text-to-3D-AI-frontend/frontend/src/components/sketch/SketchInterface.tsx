@@ -188,32 +188,6 @@ export default function SketchInterface({ onExport, className = '' }: SketchInte
         </div>
       )}
 
-      {/* Instructions */}
-      <div className="rounded-lg border border-border bg-muted/30 p-6">
-        <h3 className="mb-3 text-sm font-semibold text-foreground">How to use</h3>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Draw with your mouse, touchscreen, or stylus/pen</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Switch between Brush and Eraser tools</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Adjust brush size and color as needed</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Use Undo/Redo to fix mistakes</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Export your sketch with preprocessing options</span>
-          </li>
-        </ul>
-      </div>
     </div>
   );
 }

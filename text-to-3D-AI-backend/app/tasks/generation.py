@@ -1,27 +1,14 @@
-"""
-OptiForge3D — 3D Generation Celery Task
-=========================================
-The main background task that processes 3D model generation requests.
-
-This task:
-1. Updates the Generation row to PROCESSING
-2. Runs the ML pipeline (placeholder for Shap-E / YOLOv8 / CLIP)
-3. On success: sets COMPLETED + output_file_url + processing_time_ms
-4. On failure: sets FAILED + error_message
-
-All database writes hit real PostgreSQL via the sync engine.
-"""
-
 import logging
+import os
+import requests
 import time
-import uuid
-
+import base64
+import zipfile
+import io
 from app.celery_app import celery_app
-from app.models.generation import GenerationStatus
-from app.tasks.database import get_sync_db
+from app.config import get_settings
 
 logger = logging.getLogger("optiforge3d.tasks")
-
 
 @celery_app.task(
     bind=True,
@@ -37,116 +24,66 @@ def generate_3d_task(
     prompt: str | None = None,
     parameters: dict | None = None,
 ) -> dict:
-    """
-    Background task: generates a 3D model from user input.
-
-    Args:
-        generation_id: UUID of the Generation record in PostgreSQL.
-        input_type: "text", "image", or "sketch".
-        prompt: The text prompt (for text-based generation).
-        parameters: Optional model parameters (format, quality, etc.).
-
-    Returns:
-        dict with generation_id, status, and output_file_url.
-    """
-    logger.info(f"🏭 Starting generation task: {generation_id}")
-    logger.info(f"   Input type: {input_type}, Prompt: {prompt!r}")
-    logger.info(f"   Celery task ID: {self.request.id}")
-
-    db = get_sync_db()
+    logger.info(f"🏭 Starting single-object generation task: {generation_id}")
     start_time = time.time()
 
+    settings = get_settings()
+    colab_url = settings.COLAB_API_URL
+    if not colab_url:
+        raise ValueError("COLAB_API_URL environment variable is missing")
+    
+    output_dir = f"static/generated-models/{generation_id}"
+    os.makedirs(output_dir, exist_ok=True)
+    
     try:
-        # ── Step 1: Mark as PROCESSING ──────────────────────────────
-        from app.models.generation import Generation
-
-        generation = db.query(Generation).filter(
-            Generation.id == uuid.UUID(generation_id)
-        ).first()
-
-        if not generation:
-            raise ValueError(f"Generation {generation_id} not found in database")
-
-        generation.status = GenerationStatus.PROCESSING
-        db.commit()
-        logger.info(f"   Status → PROCESSING")
-
-        # ── Step 2: Run ML Pipeline ─────────────────────────────────
-        # =============================================================
-        # 🔌 ML ENGINEER: PLUG IN YOUR CODE HERE
-        # =============================================================
-        # This is where the heavy PyTorch execution happens:
-        #   - Load the Shap-E / YOLOv8 / CLIP model weights
-        #   - Generate the 3D mesh from the input
-        #   - Export to .glb / .obj format
-        #   - Upload the result to MinIO (generated-models bucket)
-        #   - Return the MinIO object URL
-        #
-        # Example integration:
-        #   from ml.pipeline import generate_3d_model
-        #   result = generate_3d_model(
-        #       input_type=input_type,
-        #       prompt=prompt,
-        #       parameters=parameters,
-        #   )
-        #   output_url = upload_to_minio(result.mesh_file)
-        #
-        # For now, we simulate the processing time to prove
-        # the task queue works end-to-end with real infrastructure.
-        # =============================================================
-
-        logger.info("   🧠 ML pipeline executing via Azure TripoSR...")
-
-        import os
-        import requests
+        if input_type == "text" and prompt:
+            # 1. Generate 2D Image via Pollinations
+            logger.info(f"   🎨 Pollinations AI: Generating 2D image for: {prompt}")
+            prompt_encoded = requests.utils.quote(f"A single, isolated 3D rendering of {prompt}. Straight-on eye-level view, perfectly upright, completely flat side-profile, NOT isometric, NOT from above. Clean solid white background, high quality, centered, photorealistic.")
+            image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=512&height=512&nologo=true"
+            
+            for attempt in range(5):
+                img_res = requests.get(image_url, timeout=60)
+                if img_res.status_code == 429:
+                    logger.warning(f"   ⚠️ Pollinations 429. Retrying in 3s...")
+                    time.sleep(3)
+                    continue
+                img_res.raise_for_status()
+                break
+                
+            img_bytes = img_res.content
+            b64_str = base64.b64encode(img_bytes).decode('utf-8')
+            
+            # 2. Call TRELLIS on Colab
+            endpoint = f"{colab_url.rstrip('/')}/generate-scene"
+            logger.info(f"   📡 Sending image to TRELLIS Colab: {endpoint}")
+            
+            res = requests.post(
+                endpoint,
+                json={"images": [{"name": prompt, "image_base64": b64_str}]},
+                headers={"Bypass-Tunnel-Reminder": "true"},
+                timeout=300
+            )
+            res.raise_for_status()
+            
+            # 3. Extract the single object from the zip
+            zip_path = os.path.join(output_dir, "response.zip")
+            with open(zip_path, "wb") as f:
+                f.write(res.content)
+                
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(output_dir)
+                
+            # Rename object_0.glb to model.glb for the frontend
+            os.rename(os.path.join(output_dir, "object_0.glb"), os.path.join(output_dir, "model.glb"))
+            
+        else:
+            raise ValueError(f"Unsupported input_type: {input_type}")
         
-        import os
-        import requests
-        
-        colab_url = os.getenv("COLAB_API_URL", "https://sweet-doors-act.loca.lt")
-        
-        try:
-            if input_type == "text" and prompt:
-                logger.info(f"   📡 Sending text prompt to Colab GPU at {colab_url}...")
-                endpoint = f"{colab_url.rstrip('/')}/generate-text-to-3d"
-                response = requests.post(
-                    endpoint, 
-                    data={"prompt": prompt},
-                    headers={"Bypass-Tunnel-Reminder": "true"}
-                )
-                response.raise_for_status()
-            else:
-                logger.info(f"   📡 Sending image to Colab at {colab_url}...")
-                endpoint = f"{colab_url.rstrip('/')}/generate-3d"
-                # For future image-to-3d support
-                # response = requests.post(endpoint, files={"image": ...}, headers={"Bypass-Tunnel-Reminder": "true"})
-                # response.raise_for_status()
-                pass
+        output_url = f"generated-models/{generation_id}/model.glb"
             
-            # Save the GLB locally in the backend's static directory for now
-            # (In production, this would go to MinIO)
-            os.makedirs(f"static/generated-models/{generation_id}", exist_ok=True)
-            output_url = f"generated-models/{generation_id}/model.glb"
-            output_path = f"static/{output_url}"
-            
-            with open(output_path, "wb") as f:
-                f.write(response.content)
-            
-            logger.info(f"   📥 Received 3D model from Colab. Saved to: {output_path}")
-            
-        except Exception as e:
-            logger.error(f"   ❌ Failed to contact Colab API: {e}")
-            raise e
-
-        # ── Step 3: Mark as COMPLETED ───────────────────────────────
         elapsed_ms = int((time.time() - start_time) * 1000)
-
-        generation.status = GenerationStatus.COMPLETED
-        generation.output_file_url = output_url
-        generation.processing_time_ms = elapsed_ms
-        db.commit()
-
-        logger.info(f"   Status → COMPLETED ({elapsed_ms}ms)")
+        logger.info(f"   ✅ Status → COMPLETED ({elapsed_ms}ms)")
 
         return {
             "generation_id": generation_id,
@@ -156,23 +93,5 @@ def generate_3d_task(
         }
 
     except Exception as exc:
-        # ── Step 4: Mark as FAILED ──────────────────────────────────
-        elapsed_ms = int((time.time() - start_time) * 1000)
-        error_msg = str(exc)
-
-        logger.error(f"   ❌ Task FAILED: {error_msg}")
-
-        try:
-            if generation:
-                generation.status = GenerationStatus.FAILED
-                generation.error_message = error_msg
-                generation.processing_time_ms = elapsed_ms
-                db.commit()
-        except Exception as db_err:
-            logger.error(f"   ❌ Failed to update DB with error: {db_err}")
-            db.rollback()
-
-        raise
-
-    finally:
-        db.close()
+        logger.error(f"   ❌ Task FAILED: {exc}")
+        raise exc

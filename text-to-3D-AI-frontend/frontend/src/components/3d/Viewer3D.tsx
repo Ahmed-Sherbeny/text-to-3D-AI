@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, Environment, useGLTF } from '@react-three/drei';
 import { useGenerationStore } from '@/store/generationStore';
@@ -15,13 +15,7 @@ function PlaceholderCube() {
 
 function ModelRenderer({ url }: { url: string }) {
   const { scene } = useGLTF(url);
-  // Center and scale the model
-  useEffect(() => {
-    if (scene) {
-      scene.scale.setScalar(2.0); // You can adjust scaling if it's too small
-      scene.position.set(0, 0, 0);
-    }
-  }, [scene]);
+  // Render the GLTF scene as-is — the backend already computed correct transforms
   return <primitive object={scene} />;
 }
 
