@@ -170,7 +170,20 @@ def generate_scene_task(
             rot_z_to_y = trimesh.transformations.rotation_matrix(np.radians(-90), [1, 0, 0])
             mesh.apply_transform(rot_z_to_y)
             
-            # Clean up floating noise: keep only the largest connected component
+            obj_key = f"object_{i}"
+            logger.info(f"      🧼 Cleaning mesh: {obj_key}")
+            
+            # 1. Remove degenerate faces (zero area) and duplicate faces
+            mesh.remove_degenerate_faces()
+            mesh.remove_duplicate_faces()
+            
+            # 2. Remove isolated, unreferenced vertices
+            mesh.remove_unreferenced_vertices()
+            
+            # 3. Fix normals to ensure proper lighting/rendering
+            mesh.fix_normals()
+            
+            # 4. Clean up floating noise: keep only the largest connected component
             components = mesh.split(only_watertight=False)
             if len(components) > 0:
                 mesh = sorted(components, key=lambda m: m.volume, reverse=True)[0]
