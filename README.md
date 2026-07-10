@@ -12,7 +12,7 @@ The architecture has been highly optimized and simplified for rapid deployment a
 
 ---
 
-## 🚀 Quick Start Guide (100% Working Setup)
+## Quick Start Guide (100% Working Setup)
 
 To get everything running on a fresh machine, follow these 3 steps exactly.
 
