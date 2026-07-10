@@ -1,6 +1,6 @@
 # OptiForge3D — Text-to-3D AI Generation System
 
-Welcome to the OptiForge3D monorepo! This application allows users to generate ultra-high-quality 3D scenes and objects from text prompts using the TRELLIS AI model.
+Welcome to the OptiForge3D monorepo! This application allows users to generate ultra-high-quality 3D scenes and objects from text prompts using the TripoSR AI model.
 
 The architecture has been highly optimized and simplified for rapid deployment and development. 
 
@@ -8,7 +8,7 @@ The architecture has been highly optimized and simplified for rapid deployment a
 1. **Frontend**: React / Vite / TypeScript (Tailwind + Three.js for rendering)
 2. **Backend API**: FastAPI + Celery (Python) for asynchronous job processing.
 3. **Task Broker**: Redis (via Docker Compose)
-4. **AI Engine**: Google Colab (running the massive TRELLIS model via Cloudflare API tunnels)
+4. **AI Engine**: Google Colab
 
 ---
 
@@ -17,13 +17,13 @@ The architecture has been highly optimized and simplified for rapid deployment a
 To get everything running on a fresh machine, follow these 3 steps exactly.
 
 ### Step 1: Start the AI Engine (Google Colab)
-Because the TRELLIS model requires an NVIDIA GPU with at least 16GB VRAM, we run it in a free Google Colab environment.
+Because the TripoSR model requires an NVIDIA GPU with at least 16GB VRAM, we run it in a free Google Colab environment.
 1. Open Google Colab and create a new notebook.
 2. Go to **Runtime -> Change runtime type -> T4 GPU**.
 3. Open `colab-notebooks/colab_server.py` from this repository, and copy its contents into two cells in the Colab notebook.
 4. In Cell 2, insert your Hugging Face token in the environment variables.
 5. Run both cells. 
-6. At the end of Cell 2, it will output a **Cloudflare API URL** (e.g. `https://random-words.trycloudflare.com`). Keep this handy!
+6. At the end of Cell 2, it will output an **API URL** (e.g. `https://wet-dancers-fetch.loca.lt`). Keep this handy!
 
 ### Step 2: Start the Backend (FastAPI + Celery)
 You need Python 3.10+ installed.
