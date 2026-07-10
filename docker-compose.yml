@@ -1,0 +1,68 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: optiforge_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: 
+      context: ./text-to-3D-AI-backend
+    container_name: optiforge_api
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./text-to-3D-AI-backend/app:/app/app
+      - ./text-to-3D-AI-backend/static:/app/static
+    env_file:
+      - ./text-to-3D-AI-backend/.env
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: 
+      context: ./text-to-3D-AI-backend
+    container_name: optiforge_worker
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=1
+    volumes:
+      - ./text-to-3D-AI-backend/app:/app/app
+      - ./text-to-3D-AI-backend/static:/app/static
+    env_file:
+      - ./text-to-3D-AI-backend/.env
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./text-to-3D-AI-frontend/frontend
+    container_name: optiforge_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./text-to-3D-AI-frontend/frontend/src:/app/src
+      - ./text-to-3D-AI-frontend/frontend/public:/app/public
+    environment:
+      - VITE_API_URL=http://api:8000
+    depends_on:
+      - api
+
+volumes:
+  redis_data:

@@ -25,56 +25,28 @@ Because the TRELLIS model requires an NVIDIA GPU with at least 16GB VRAM, we run
 5. Run both cells. 
 6. At the end of Cell 2, it will output a **Cloudflare API URL** (e.g. `https://random-words.trycloudflare.com`). Keep this handy!
 
-### Step 2: Start the Backend (FastAPI + Celery)
-You need Python 3.10+ installed.
+### Step 2: Start the Full Stack with Docker
+You only need [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed on your machine.
 
-1. **Start Redis**:
-   Open a terminal in `text-to-3D-AI-backend/` and run:
-   ```bash
-   docker compose up -d
-   ```
-2. **Setup Python Environment**:
-   ```bash
-   cd text-to-3D-AI-backend
-   python -m venv .venv
-   # Windows:
-   .\.venv\Scripts\activate
-   # Mac/Linux:
-   source .venv/bin/activate
-   
-   pip install -r requirements.txt
-   ```
-3. **Configure Environment Variables**:
+1. **Configure Environment Variables**:
    Copy `.env.example` to `.env` inside the `text-to-3D-AI-backend/` folder.
    Edit the `.env` file and set the URL you got from Google Colab:
    ```env
    COLAB_API_URL=https://your-cloudflare-url-here.trycloudflare.com
    GEMINI_API_KEY=your_gemini_api_key
    ```
-4. **Start the FastAPI Server**:
+2. **Launch Everything**:
+   Open a terminal in the **root** folder of this repository (where `docker-compose.yml` is) and run:
    ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   docker compose up --build -d
    ```
-5. **Start the Celery Worker (In a new terminal)**:
-   ```bash
-   cd text-to-3D-AI-backend
-   .\.venv\Scripts\activate
-   celery -A app.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q default
-   ```
+   This will automatically:
+   - Start the Redis message broker
+   - Build and start the FastAPI Backend (Port 8000)
+   - Build and start the Celery Task Worker
+   - Build and start the React/Vite Frontend (Port 3000)
 
-### Step 3: Start the Frontend (Vite)
-You need Node.js installed.
+3. **Access the App**:
+   Open your browser to `http://localhost:3000`. You are ready to generate 3D models!
 
-1. Open a new terminal in the frontend directory:
-   ```bash
-   cd text-to-3D-AI-frontend/frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-4. Open your browser to `http://localhost:5173`. You are ready to generate 3D models!
+*To stop the app later, simply run `docker compose down`.*
